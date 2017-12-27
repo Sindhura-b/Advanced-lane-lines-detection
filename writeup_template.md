@@ -47,68 +47,40 @@ I then used the output `objpoints` and `imgpoints` to compute the camera calibra
 
 #### 1. Provide an example of a distortion-corrected image.
 
-To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
+After obtaining the caliberations matrices and distortion coefficients, I built a pipeline that identifies lane lines in a given test image. When a test image is given as input to the pipeline, it first converts the distorted image to an undistorted image using `cal_undistort` fuction. 
 
-#### 2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+Then gradients are used to detect the edges in an image. To do this, a fuction called `abs_sobel_thresh`, with thresholds of 0 and 250, is implemented to determine the sobel operators (S_x and S_y) that give the gradient of an image in x and y direction. Two more functions `mag_thresh` and `grad_threshold`, with thresolds 0 and 250, and 0 and 90 degrees, were implemented to determine the magnitude and gradients of image. Although gradient thresolding was able detect lane lines, there was still some noise in the resulting image. So, I have also implemented `r_thresh`, `s_thresh` and `h_thresh` functions to perform color thresholding of the test image. The next step is to use a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in code cell). I have tried various combinartions of thresholding to get the best out of both worlds. The best binary images I could obtain with minimal noise are from s-channel thresholding and r-channel thresholding. 
 
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+After having a thresholded binary image, the next is to perform a perspective transform of given image to bird eye view. Transforming image enables us to effectively view image from another perspective (bird's-eye view in this case) that is used for determining the lane curvature. Having the lane-curvature information is cruicial for a self-driving car to calculate steering angle and steer the vehicle accordingly. The steps for obatining perspective transform and image warping are implemented in `warp_corners` function. The `warp_corners` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points. The source points are chosen such that they are along the lane lanes and form a rectangular box. The destination points are chose such that they display the only with lane lines from a bird's-eye view.
 
-![alt text][image3]
-
-#### 3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
-
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
-
-```python
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-```
-
-This resulted in the following source and destination points:
+Following are source and destination points chosen for transforming:
 
 | Source        | Destination   | 
 |:-------------:|:-------------:| 
 | 577, 463      | 450, 0        | 
 | 704, 463      | 829, 720      |
 | 277, 670     | 450, 720      |
-| 1029, 670      | 829, 720        |
+| 1029, 670      | 829, 720     |
 
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
-
-![alt text][image4]
-
-#### 4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
-
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+Once we have a thresholded warped image, the next step of this pipeline is to map out the lane lines. The position of lane lines in a thresholded warped image are identifying the corresponding pixel locations in the image. To do this, we first take histogram of all the columns in the lower half of the image. The peaks in the histogram signify the locations of left and right lane lines. These peak positions are used as starting points to apply sliding windows and search around that region to find locations with maximum pixels. These pixel locations are used to fit my lane lines with 2nd order polynomial and obtain its coefficients using `cv2.polyfit` function. All this is done by calling `sliding_window_polynomial_fit` The output image at this step looks similar to this:
 
 ![alt text][image5]
 
-#### 5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
+As discussed in Udacity's lectures, once you know where the lines are in one frame of video, a highly targeted search is done using `skip_sliding_window` function. The green area in the image below shows the region where we search for the lane lines this time.
 
-I did this in lines # through # in my code in `my_other_file.py`
+![alt text][image3]
 
-#### 6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
+In the regions of sharp turns, shadows or sudden change in curvature, the pipeline might fail to detect lane lines using trageted search. In such situations where we lose the track of lane lines, the pipeline performs sliding window search. Few sanity checks such as empty lane line pixel locations and differences in the curvature of left and right lanes are used to switch between sliding window search and targeted search to map out the lane lines. The curvature of the lane lines, radius of curvature and offset of vehicle from center lane are calculated using the methods described in the lecture and the implementation of this is present in `radius_curvature` function.
 
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
+The outputs of the test images across different stages of the pipeline are shown below:
 
-![alt text][image6]
-
----
+![alt text][image4]
 
 ### Pipeline (video)
 
-#### 1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
+The pipeline is also tested on the video provided for this project and it performed reasonably well. 
 
-Here's a [link to my video result](./project_video.mp4)
+Here's the [link to my video result](./project_video_out_my.mp4)
 
 ---
 
@@ -116,4 +88,4 @@ Here's a [link to my video result](./project_video.mp4)
 
 #### 1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+The pipeline intially failed to detect right lane line at certain locations. I figured out that the starting values of right lane line from the histogram are incorrect in those locations (eg: histogram in pipeline output image - row 3), i.e, the peak at the right lane line is smaller than the peak at the right end of the image (resulting from noise in the image). This has been fixed by doing sanity checks and performing sliding window search in those regions. However, changing threshold values and combining thresholds can be done to avoid the noise from other regions and detect lane lines properly. This pipeline also fails to detect lane lines in the challenge video. 
