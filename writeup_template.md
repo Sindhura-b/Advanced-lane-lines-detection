@@ -80,7 +80,7 @@ The outputs of the test images across different stages of the pipeline are shown
 
 The pipeline is also tested on the video provided for this project and it performed reasonably well. 
 
-Here's the [link to my video result](./project_video_out_my.mp4)
+Here's the [link to my video result](../project_video_out_my.mp4)
 
 ---
 
